@@ -9,7 +9,6 @@ import DetailsModal from './components/DetailsModal.jsx'
 import CategoryManagerModal from './components/CategoryManagerModal.jsx'
 import Toast from './components/Toast.jsx'
 import * as api from './api.js'
-
 const missingConfig = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export default function App() {
