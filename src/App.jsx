@@ -9,6 +9,7 @@ import DetailsModal from './components/DetailsModal.jsx'
 import CategoryManagerModal from './components/CategoryManagerModal.jsx'
 import Toast from './components/Toast.jsx'
 import * as api from './api.js'
+
 const missingConfig = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export default function App() {
@@ -111,14 +112,14 @@ export default function App() {
   }
 
   // ---------- Stock movements ----------
-  async function handleStockSubmit({ quantity, note }) {
+  async function handleStockSubmit({ quantity, note, performedBy }) {
     const { mode, component } = stockModal
     const newQty = mode === 'add'
       ? Number(component.quantity) + quantity
       : Number(component.quantity) - quantity
     const updated = await api.updateComponentQuantity(component.id, newQty)
     setComponents(prev => prev.map(c => c.id === updated.id ? updated : c))
-    const tx = await api.createTransaction({ component_id: component.id, type: mode, quantity, note })
+    const tx = await api.createTransaction({ component_id: component.id, type: mode, quantity, note, performed_by: performedBy })
     setTransactions(prev => [tx, ...prev])
     setStockModal(null)
     notify(`${mode === 'add' ? '+' : '-'}${quantity} ${mode === 'add' ? 'added to' : 'removed from'} ${component.name}`, 'success')

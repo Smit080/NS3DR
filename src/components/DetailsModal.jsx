@@ -44,6 +44,7 @@ export default function DetailsModal({ component, transactions, onClose, onDelet
                 </span>
                 <span style={{ fontFamily: "'IBM Plex Mono'", color: 'var(--ink-faint)' }}>{fmtDate(t.created_at)}</span>
               </div>
+              {t.performed_by && <div className="h-note"><b>By:</b> {t.performed_by}</div>}
               {t.note && <div className="h-note">{t.note}</div>}
             </div>
           ))}

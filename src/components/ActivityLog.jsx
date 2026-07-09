@@ -9,11 +9,11 @@ export default function ActivityLog({ transactions, components, visible }) {
   return (
     <table className="log-table">
       <thead>
-        <tr><th>Date &amp; time</th><th>Component</th><th>Action</th><th>Qty</th><th>Details</th></tr>
+        <tr><th>Date &amp; time</th><th>Component</th><th>Action</th><th>Qty</th><th>By</th><th>Details</th></tr>
       </thead>
       <tbody>
         {transactions.length === 0 && (
-          <tr><td colSpan={5} className="log-empty">No stock movements recorded yet.</td></tr>
+          <tr><td colSpan={6} className="log-empty">No stock movements recorded yet.</td></tr>
         )}
         {transactions.map(t => {
           const comp = components.find(c => c.id === t.component_id)
@@ -23,6 +23,7 @@ export default function ActivityLog({ transactions, components, visible }) {
               <td>{comp ? comp.name : '(deleted component)'}</td>
               <td><span className={`log-type ${t.type}`}>{t.type === 'add' ? 'STOCK IN' : 'STOCK OUT'}</span></td>
               <td style={{ fontFamily: "'IBM Plex Mono'" }}>{t.type === 'add' ? '+' : '-'}{t.quantity}</td>
+              <td>{t.performed_by || '—'}</td>
               <td className="log-note">{t.note || '—'}</td>
             </tr>
           )

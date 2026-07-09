@@ -4,6 +4,7 @@ import { useState } from 'react'
 export default function StockModal({ mode, component, onClose, onSubmit }) {
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState('')
+  const [performedBy, setPerformedBy] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -21,10 +22,14 @@ export default function StockModal({ mode, component, onClose, onSubmit }) {
       setError('Please note which machine or job this stock is used for.')
       return
     }
+    if (!performedBy.trim()) {
+      setError('Please enter your name.')
+      return
+    }
     setError('')
     setSaving(true)
     try {
-      await onSubmit({ quantity: q, note: note.trim() })
+      await onSubmit({ quantity: q, note: note.trim(), performedBy: performedBy.trim() })
     } catch (err) {
       setError(err.message || 'Something went wrong.')
     } finally {
@@ -51,6 +56,15 @@ export default function StockModal({ mode, component, onClose, onSubmit }) {
           <div className="field">
             <label>Quantity to {isAdd ? 'add' : 'remove'} <span className="req">*</span></label>
             <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>{isAdd ? 'Added by' : 'Removed by'} <span className="req">*</span></label>
+            <input
+              type="text"
+              value={performedBy}
+              onChange={e => setPerformedBy(e.target.value)}
+              placeholder="Your name"
+            />
           </div>
           <div className="field">
             <label>{isAdd ? 'Source / reference note' : 'Used for / machine'} {!isAdd && <span className="req">*</span>}</label>
