@@ -111,13 +111,14 @@ create table components (
 );
 
 -- 3) Stock transactions — every add/remove movement, with required
---    reason on removal (which machine/job it went to)
+--    reason on removal (which machine/job it went to) and who did it
 create table stock_transactions (
   id uuid primary key default uuid_generate_v4(),
   component_id uuid references components(id) on delete cascade,
   type text not null check (type in ('add','remove')),
   quantity numeric not null,
   note text,
+  performed_by text,
   created_at timestamptz not null default now()
 );
 
@@ -160,7 +161,16 @@ create index idx_transactions_created on stock_transactions(created_at desc);
 | type | text | `add` or `remove` |
 | quantity | numeric | how many units moved |
 | note | text | for `add`: source/PO reference (optional). For `remove`: **required** — which machine/job it was used for |
+| performed_by | text | **required** — name of the person who added or removed the stock |
 | created_at | timestamptz | recorded automatically |
+
+### Migration (if you already created the tables before this field existed)
+
+If your `stock_transactions` table already exists from an earlier setup, just add the new column instead of recreating everything:
+
+```sql
+alter table stock_transactions add column performed_by text;
+```
 
 ### Row Level Security (RLS)
 
