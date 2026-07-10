@@ -8,6 +8,7 @@ import StockModal from './components/StockModal.jsx'
 import DetailsModal from './components/DetailsModal.jsx'
 import CategoryManagerModal from './components/CategoryManagerModal.jsx'
 import MachineFormModal from './components/MachineFormModal.jsx'
+import PasswordGateModal from './components/PasswordGateModal.jsx'
 import Toast from './components/Toast.jsx'
 import AllComponentsPage from './pages/AllComponentsPage.jsx'
 import MachinesPage from './pages/MachinesPage.jsx'
@@ -17,6 +18,7 @@ import * as api from './api.js'
 
 const missingConfig = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY
 const HOME_PREVIEW_LIMIT = 5
+const AUTH_KEY = 'ns3dr_authorized'
 
 export default function App() {
   const [loading, setLoading] = useState(true)
@@ -39,12 +41,47 @@ export default function App() {
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [machineFormOpen, setMachineFormOpen] = useState(false)
 
+  const [authorized, setAuthorized] = useState(() => {
+    try { return localStorage.getItem(AUTH_KEY) === 'true' } catch { return false }
+  })
+  const [passwordGate, setPasswordGate] = useState(null) // { run, cancel }
+
   const [toast, setToast] = useState(null)
   const serial = useMemo(() => 'NS-' + Math.floor(100000 + Math.random() * 899999), [])
 
   function notify(message, kind = '') {
     setToast({ message, kind })
     setTimeout(() => setToast(null), 2600)
+  }
+
+  // Wraps a mutating action so it asks for the password once (per browser,
+  // until cache/site data is cleared) before it's allowed to run.
+  function guardAction(fn) {
+    return (...args) => {
+      if (authorized) return fn(...args)
+      return new Promise((resolve, reject) => {
+        setPasswordGate({
+          run: async () => {
+            try { resolve(await fn(...args)) } catch (err) { reject(err) }
+          },
+          cancel: () => reject(new Error('Password required to continue.'))
+        })
+      })
+    }
+  }
+
+  function handlePasswordUnlocked() {
+    try { localStorage.setItem(AUTH_KEY, 'true') } catch {}
+    setAuthorized(true)
+    const gate = passwordGate
+    setPasswordGate(null)
+    if (gate) gate.run()
+  }
+
+  function handlePasswordCancelled() {
+    const gate = passwordGate
+    setPasswordGate(null)
+    if (gate) gate.cancel()
   }
 
   async function loadAll() {
@@ -202,6 +239,19 @@ export default function App() {
     setMachineComponents(prev => prev.filter(mc => mc.id !== id))
   }
 
+  const guardedSaveComponent = guardAction(handleSaveComponent)
+  const guardedDeleteComponent = guardAction(handleDeleteComponent)
+  const guardedStockSubmit = guardAction(handleStockSubmit)
+  const guardedAddCategory = guardAction(handleAddCategory)
+  const guardedRenameCategory = guardAction(handleRenameCategory)
+  const guardedDeleteCategory = guardAction(handleDeleteCategory)
+  const guardedCreateMachine = guardAction(handleCreateMachine)
+  const guardedEditMachine = guardAction(handleEditMachine)
+  const guardedDeleteMachine = guardAction(handleDeleteMachine)
+  const guardedAddMachineComponent = guardAction(handleAddMachineComponent)
+  const guardedUpdateMachineComponentQty = guardAction(handleUpdateMachineComponentQty)
+  const guardedRemoveMachineComponent = guardAction(handleRemoveMachineComponent)
+
   // ---------- Navigation ----------
   function goHome() { setView('home') }
   function goAllComponents() { setView('all-components') }
@@ -248,11 +298,11 @@ export default function App() {
           rows={rows}
           allComponents={components}
           onBack={goMachines}
-          onEditMachine={handleEditMachine}
-          onAddComponent={handleAddMachineComponent}
-          onUpdateQty={handleUpdateMachineComponentQty}
-          onRemoveComponent={handleRemoveMachineComponent}
-          onDeleteMachine={handleDeleteMachine}
+          onEditMachine={guardedEditMachine}
+          onAddComponent={guardedAddMachineComponent}
+          onUpdateQty={guardedUpdateMachineComponentQty}
+          onRemoveComponent={guardedRemoveMachineComponent}
+          onDeleteMachine={guardedDeleteMachine}
         />
       )
     }
@@ -311,7 +361,7 @@ export default function App() {
           categories={categories}
           initial={componentFormState === 'new' ? null : componentFormState.component}
           onClose={() => setComponentFormState(null)}
-          onSave={handleSaveComponent}
+          onSave={guardedSaveComponent}
         />
       )}
 
@@ -320,7 +370,7 @@ export default function App() {
           mode={stockModal.mode}
           component={stockModal.component}
           onClose={() => setStockModal(null)}
-          onSubmit={handleStockSubmit}
+          onSubmit={guardedStockSubmit}
         />
       )}
 
@@ -329,7 +379,7 @@ export default function App() {
           component={detailsComponent}
           transactions={transactions}
           onClose={() => setDetailsComponent(null)}
-          onDelete={handleDeleteComponent}
+          onDelete={guardedDeleteComponent}
         />
       )}
 
@@ -338,16 +388,23 @@ export default function App() {
           categories={categories}
           components={components}
           onClose={() => setShowCategoryManager(false)}
-          onAdd={handleAddCategory}
-          onRename={handleRenameCategory}
-          onDelete={handleDeleteCategory}
+          onAdd={guardedAddCategory}
+          onRename={guardedRenameCategory}
+          onDelete={guardedDeleteCategory}
         />
       )}
 
       {machineFormOpen && (
         <MachineFormModal
           onClose={() => setMachineFormOpen(false)}
-          onSave={handleCreateMachine}
+          onSave={guardedCreateMachine}
+        />
+      )}
+
+      {passwordGate && (
+        <PasswordGateModal
+          onSubmit={handlePasswordUnlocked}
+          onCancel={handlePasswordCancelled}
         />
       )}
 

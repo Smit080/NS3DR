@@ -35,8 +35,12 @@ export default function MachineDetailPage({
   async function saveEditQty(row) {
     const q = Number(editQty)
     if (!q || q <= 0) return
-    await onUpdateQty(row.id, q)
-    setEditingRowId(null)
+    try {
+      await onUpdateQty(row.id, q)
+      setEditingRowId(null)
+    } catch (err) {
+      setAddError(err.message || 'Could not update quantity.')
+    }
   }
 
   return (
