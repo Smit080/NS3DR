@@ -1,6 +1,6 @@
 import ComponentCard from './ComponentCard.jsx'
 
-export default function ComponentGrid({ components, allCount, onAdd, onRemove, onDetails }) {
+export default function ComponentGrid({ components, allCount, onAdd, onRemove, onDetails, onEdit }) {
   if (components.length === 0) {
     return (
       <div className="empty-state">
@@ -22,6 +22,7 @@ export default function ComponentGrid({ components, allCount, onAdd, onRemove, o
           onAdd={onAdd}
           onRemove={onRemove}
           onDetails={onDetails}
+          onEdit={onEdit}
         />
       ))}
     </div>

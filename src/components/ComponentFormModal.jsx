@@ -7,8 +7,20 @@ const empty = {
   min_threshold: 2, location: '', machine: '', supplier: '', notes: ''
 }
 
-export default function ComponentFormModal({ categories, onClose, onSave }) {
-  const [form, setForm] = useState(empty)
+export default function ComponentFormModal({ categories, initial, onClose, onSave }) {
+  const isEdit = !!initial
+  const [form, setForm] = useState(() => isEdit ? {
+    name: initial.name || '',
+    category_id: initial.category_id || '',
+    part_no: initial.part_no || '',
+    quantity: initial.quantity ?? 0,
+    unit: initial.unit || 'pcs',
+    min_threshold: initial.min_threshold ?? 2,
+    location: initial.location || '',
+    machine: initial.machine || '',
+    supplier: initial.supplier || '',
+    notes: initial.notes || ''
+  } : empty)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -37,8 +49,8 @@ export default function ComponentFormModal({ categories, onClose, onSave }) {
     <div className="overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <button className="modal-close" onClick={onClose}>&times;</button>
-        <h3>New component</h3>
-        <p className="modal-sub">Add a part to inventory. Fields marked <span className="req">*</span> are required.</p>
+        <h3>{isEdit ? 'Edit component' : 'New component'}</h3>
+        <p className="modal-sub">{isEdit ? 'Update this component\'s details.' : 'Add a part to inventory.'} Fields marked <span className="req">*</span> are required.</p>
         {error && <div className="form-error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
@@ -60,8 +72,9 @@ export default function ComponentFormModal({ categories, onClose, onSave }) {
           </div>
           <div className="field-row">
             <div className="field">
-              <label>Starting quantity <span className="req">*</span></label>
-              <input type="number" min="0" value={form.quantity} onChange={e => update('quantity', e.target.value)} />
+              <label>{isEdit ? 'Quantity in stock' : 'Starting quantity'} <span className="req">*</span></label>
+              <input type="number" min="0" value={form.quantity} onChange={e => update('quantity', e.target.value)} disabled={isEdit} />
+              {isEdit && <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 4 }}>Use "Add stock" / "Remove" on the card to change quantity, so it stays logged.</div>}
             </div>
             <div className="field">
               <label>Unit</label>
@@ -94,7 +107,7 @@ export default function ComponentFormModal({ categories, onClose, onSave }) {
           </div>
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save component'}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save component')}</button>
           </div>
         </form>
       </div>

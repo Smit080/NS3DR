@@ -7,25 +7,37 @@ import ComponentFormModal from './components/ComponentFormModal.jsx'
 import StockModal from './components/StockModal.jsx'
 import DetailsModal from './components/DetailsModal.jsx'
 import CategoryManagerModal from './components/CategoryManagerModal.jsx'
+import MachineFormModal from './components/MachineFormModal.jsx'
 import Toast from './components/Toast.jsx'
+import AllComponentsPage from './pages/AllComponentsPage.jsx'
+import MachinesPage from './pages/MachinesPage.jsx'
+import MachineDetailPage from './pages/MachineDetailPage.jsx'
+import { computeBuildable } from './utils.js'
 import * as api from './api.js'
 
 const missingConfig = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY
+const HOME_PREVIEW_LIMIT = 5
 
 export default function App() {
   const [loading, setLoading] = useState(true)
   const [categories, setCategories] = useState([])
   const [components, setComponents] = useState([])
   const [transactions, setTransactions] = useState([])
+  const [machines, setMachines] = useState([])
+  const [machineComponents, setMachineComponents] = useState([])
+
+  const [view, setView] = useState('home') // 'home' | 'all-components' | 'machines' | 'machine-detail'
+  const [selectedMachineId, setSelectedMachineId] = useState(null)
 
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [logVisible, setLogVisible] = useState(true)
 
   const [stockModal, setStockModal] = useState(null) // { mode, component }
-  const [showComponentForm, setShowComponentForm] = useState(false)
+  const [componentFormState, setComponentFormState] = useState(null) // 'new' | { component }
   const [detailsComponent, setDetailsComponent] = useState(null)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [machineFormOpen, setMachineFormOpen] = useState(false)
 
   const [toast, setToast] = useState(null)
   const serial = useMemo(() => 'NS-' + Math.floor(100000 + Math.random() * 899999), [])
@@ -38,10 +50,12 @@ export default function App() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [cats, comps, txs] = await Promise.all([
-        api.fetchCategories(), api.fetchComponents(), api.fetchTransactions()
+      const [cats, comps, txs, machs, machComps] = await Promise.all([
+        api.fetchCategories(), api.fetchComponents(), api.fetchTransactions(),
+        api.fetchMachines(), api.fetchAllMachineComponents()
       ])
       setCategories(cats); setComponents(comps); setTransactions(txs)
+      setMachines(machs); setMachineComponents(machComps)
     } catch (err) {
       notify(err.message || 'Failed to load data from Supabase.', 'danger')
     } finally {
@@ -81,6 +95,8 @@ export default function App() {
       (c.machine || '').toLowerCase().includes(t)
   }).sort((a, b) => a.name.localeCompare(b.name))
 
+  const homePreview = filtered.slice(0, HOME_PREVIEW_LIMIT)
+
   const stats = {
     total: components.length,
     units: components.reduce((s, c) => s + Number(c.quantity || 0), 0),
@@ -90,16 +106,24 @@ export default function App() {
 
   // ---------- Component CRUD ----------
   async function handleSaveComponent(payload) {
-    const created = await api.createComponent(payload)
-    setComponents(prev => [...prev, created])
-    if (payload.quantity > 0) {
-      const tx = await api.createTransaction({
-        component_id: created.id, type: 'add', quantity: payload.quantity, note: 'Initial stock on component creation'
-      })
-      setTransactions(prev => [tx, ...prev])
+    if (componentFormState && componentFormState !== 'new') {
+      const existing = componentFormState.component
+      const { quantity, ...rest } = payload // quantity is locked during edit, don't touch stock via this form
+      const updated = await api.updateComponent(existing.id, rest)
+      setComponents(prev => prev.map(c => c.id === updated.id ? updated : c))
+      notify(`${updated.name} updated`, 'success')
+    } else {
+      const created = await api.createComponent(payload)
+      setComponents(prev => [...prev, created])
+      if (payload.quantity > 0) {
+        const tx = await api.createTransaction({
+          component_id: created.id, type: 'add', quantity: payload.quantity, note: 'Initial stock on component creation'
+        })
+        setTransactions(prev => [tx, ...prev])
+      }
+      notify(`${created.name} added to inventory`, 'success')
     }
-    setShowComponentForm(false)
-    notify(`${created.name} added to inventory`, 'success')
+    setComponentFormState(null)
   }
 
   async function handleDeleteComponent(component) {
@@ -140,39 +164,153 @@ export default function App() {
     setComponents(prev => prev.map(c => c.category_id === id ? { ...c, category_id: null, category: null } : c))
   }
 
-  return (
-    <div className="wrap">
-      <Header stats={stats} serial={serial} />
+  // ---------- Machines ----------
+  async function handleCreateMachine(payload) {
+    const created = await api.createMachine(payload)
+    setMachines(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+    setMachineFormOpen(false)
+    setSelectedMachineId(created.id)
+    setView('machine-detail')
+    notify(`${created.name} created — now add its components`, 'success')
+  }
+  async function handleEditMachine(payload) {
+    const machine = machines.find(m => m.id === selectedMachineId)
+    const updated = await api.updateMachine(machine.id, payload)
+    setMachines(prev => prev.map(m => m.id === updated.id ? updated : m))
+    notify(`${updated.name} updated`, 'success')
+  }
+  async function handleDeleteMachine() {
+    const machine = machines.find(m => m.id === selectedMachineId)
+    if (!machine) return
+    if (!window.confirm(`Delete machine "${machine.name}" and its component list?`)) return
+    await api.deleteMachine(machine.id)
+    setMachines(prev => prev.filter(m => m.id !== machine.id))
+    setMachineComponents(prev => prev.filter(mc => mc.machine_id !== machine.id))
+    setView('machines')
+    notify(`${machine.name} deleted`, 'danger')
+  }
+  async function handleAddMachineComponent({ component_id, quantity_required }) {
+    const created = await api.addMachineComponent({ machine_id: selectedMachineId, component_id, quantity_required })
+    setMachineComponents(prev => [...prev, created])
+  }
+  async function handleUpdateMachineComponentQty(id, qty) {
+    const updated = await api.updateMachineComponentQty(id, qty)
+    setMachineComponents(prev => prev.map(mc => mc.id === updated.id ? updated : mc))
+  }
+  async function handleRemoveMachineComponent(id) {
+    await api.removeMachineComponent(id)
+    setMachineComponents(prev => prev.filter(mc => mc.id !== id))
+  }
 
-      <Toolbar
-        search={search} setSearch={setSearch}
-        categoryId={categoryId} setCategoryId={setCategoryId}
+  // ---------- Navigation ----------
+  function goHome() { setView('home') }
+  function goAllComponents() { setView('all-components') }
+  function goMachines() { setView('machines') }
+  function openMachine(machine) { setSelectedMachineId(machine.id); setView('machine-detail') }
+
+  const sharedComponentActions = {
+    onAdd: c => setStockModal({ mode: 'add', component: c }),
+    onRemove: c => setStockModal({ mode: 'remove', component: c }),
+    onDetails: c => setDetailsComponent(c),
+    onEdit: c => setComponentFormState({ component: c })
+  }
+
+  let pageContent = null
+
+  if (view === 'all-components') {
+    pageContent = (
+      <AllComponentsPage
+        components={components}
         categories={categories}
-        onNewComponent={() => setShowComponentForm(true)}
-        onManageCategories={() => setShowCategoryManager(true)}
+        onBack={goHome}
+        {...sharedComponentActions}
       />
-
-      <div className="section-head">
-        <h2>Component Inventory <span className="tag">{filtered.length} shown</span></h2>
-      </div>
-      <ComponentGrid
-        components={filtered}
-        allCount={components.length}
-        onAdd={c => setStockModal({ mode: 'add', component: c })}
-        onRemove={c => setStockModal({ mode: 'remove', component: c })}
-        onDetails={c => setDetailsComponent(c)}
+    )
+  } else if (view === 'machines') {
+    pageContent = (
+      <MachinesPage
+        machines={machines}
+        machineComponents={machineComponents}
+        onBack={goHome}
+        onOpenMachine={openMachine}
+        onNewMachine={() => setMachineFormOpen(true)}
       />
+    )
+  } else if (view === 'machine-detail') {
+    const machine = machines.find(m => m.id === selectedMachineId)
+    if (!machine) {
+      pageContent = <div className="wrap"><p>Machine not found.</p></div>
+    } else {
+      const rows = machineComponents.filter(mc => mc.machine_id === machine.id)
+      pageContent = (
+        <MachineDetailPage
+          machine={machine}
+          rows={rows}
+          allComponents={components}
+          onBack={goMachines}
+          onEditMachine={handleEditMachine}
+          onAddComponent={handleAddMachineComponent}
+          onUpdateQty={handleUpdateMachineComponentQty}
+          onRemoveComponent={handleRemoveMachineComponent}
+          onDeleteMachine={handleDeleteMachine}
+        />
+      )
+    }
+  } else {
+    // ---------- Home ----------
+    pageContent = (
+      <div className="wrap">
+        <Header stats={stats} serial={serial} />
 
-      <div className="section-head">
-        <h2>Activity Log <span className="tag">ALL MOVEMENTS</span></h2>
-        <button className="link-btn" onClick={() => setLogVisible(v => !v)}>{logVisible ? 'Hide' : 'Show'}</button>
+        <Toolbar
+          search={search} setSearch={setSearch}
+          categoryId={categoryId} setCategoryId={setCategoryId}
+          categories={categories}
+          onNewComponent={() => setComponentFormState('new')}
+          onManageCategories={() => setShowCategoryManager(true)}
+        />
+
+        <div className="section-head">
+          <h2>Component Inventory <span className="tag">{filtered.length} total</span></h2>
+          <button className="btn btn-ghost btn-sm" onClick={goAllComponents}>Show all →</button>
+        </div>
+        <ComponentGrid
+          components={homePreview}
+          allCount={components.length}
+          {...sharedComponentActions}
+        />
+
+        <div className="section-head">
+          <h2>Machines <span className="tag">{machines.length} configured</span></h2>
+          <button className="btn btn-ghost btn-sm" onClick={() => setMachineFormOpen(true)}>+ New machine</button>
+        </div>
+        <div className="machine-block" onClick={goMachines}>
+          <span className="count">{machines.length}</span>
+          <span className="label">
+            {machines.length === 0
+              ? 'No machines set up yet — tap to add one'
+              : 'Machines configured — tap to see how many of each you can build'}
+          </span>
+        </div>
+
+        <div className="section-head">
+          <h2>Activity Log <span className="tag">ALL MOVEMENTS</span></h2>
+          <button className="link-btn" onClick={() => setLogVisible(v => !v)}>{logVisible ? 'Hide' : 'Show'}</button>
+        </div>
+        <ActivityLog transactions={transactions} components={components} visible={logVisible} />
       </div>
-      <ActivityLog transactions={transactions} components={components} visible={logVisible} />
+    )
+  }
 
-      {showComponentForm && (
+  return (
+    <>
+      {pageContent}
+
+      {componentFormState && (
         <ComponentFormModal
           categories={categories}
-          onClose={() => setShowComponentForm(false)}
+          initial={componentFormState === 'new' ? null : componentFormState.component}
+          onClose={() => setComponentFormState(null)}
           onSave={handleSaveComponent}
         />
       )}
@@ -206,7 +344,14 @@ export default function App() {
         />
       )}
 
+      {machineFormOpen && (
+        <MachineFormModal
+          onClose={() => setMachineFormOpen(false)}
+          onSave={handleCreateMachine}
+        />
+      )}
+
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

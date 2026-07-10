@@ -1,4 +1,4 @@
-export default function ComponentCard({ component, onAdd, onRemove, onDetails, index }) {
+export default function ComponentCard({ component, onAdd, onRemove, onDetails, onEdit, index }) {
   const low = Number(component.quantity) <= Number(component.min_threshold || 0)
   return (
     <div className={`card ${low ? 'low' : ''}`} style={{ animationDelay: `${index * 0.03}s` }}>
@@ -21,6 +21,7 @@ export default function ComponentCard({ component, onAdd, onRemove, onDetails, i
         <button className="btn btn-sm btn-remove" onClick={() => onRemove(component)}>− Remove</button>
       </div>
       <div className="card-foot">
+        {onEdit ? <button className="detail-link" onClick={() => onEdit(component)}>Edit</button> : <span />}
         <button className="detail-link" onClick={() => onDetails(component)}>View details &amp; history →</button>
       </div>
     </div>

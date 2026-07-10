@@ -272,3 +272,64 @@ select.cat-filter:focus{outline:none; border-color:var(--steel);}
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important; transition:none !important;}
 }
+
+/* ---------- Multi-screen navigation ---------- */
+.back-btn{font-size:13.5px; display:inline-flex; align-items:center; gap:4px;}
+
+.low-toggle{
+  display:flex; align-items:center; gap:7px; font-size:13.5px; color:var(--ink-soft);
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; padding:11px 14px; cursor:pointer; white-space:nowrap;
+}
+.low-toggle input{width:16px; height:16px; accent-color:var(--orange); cursor:pointer;}
+
+/* ---------- Machines: home block ---------- */
+.machine-block{
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:20px 22px; display:flex; align-items:center; gap:18px; cursor:pointer;
+  box-shadow:var(--shadow); transition:transform .18s, box-shadow .18s;
+  animation:cardIn .45s cubic-bezier(.2,.8,.2,1) both;
+}
+.machine-block:hover{transform:translateY(-2px); box-shadow:0 4px 6px rgba(22,32,43,0.04), 0 14px 28px -14px rgba(22,32,43,0.22);}
+.machine-block .count{
+  font-family:'IBM Plex Mono'; font-size:36px; font-weight:600; color:var(--steel);
+  background:var(--steel-tint); border-radius:10px; padding:8px 20px; flex-shrink:0;
+}
+.machine-block .label{font-size:14px; color:var(--ink-soft); font-weight:500;}
+
+/* ---------- Machines: list cards ---------- */
+.machine-card{cursor:pointer;}
+.buildable-badge{
+  margin-top:14px; background:var(--orange-tint); border-radius:8px; padding:10px 12px;
+  display:flex; align-items:baseline; gap:8px;
+}
+.buildable-badge .num{font-family:'IBM Plex Mono'; font-size:22px; font-weight:700; color:var(--orange-dark);}
+.buildable-badge .lbl{font-size:12px; color:var(--ink-soft); line-height:1.3;}
+
+/* ---------- Machine detail page ---------- */
+.machine-header{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-top:18px; flex-wrap:wrap;}
+.machine-title{font-family:'Space Grotesk'; font-size:24px; margin:0; color:var(--steel-dark);}
+.machine-desc{font-size:14px; color:var(--ink-soft); margin:6px 0 0; max-width:520px;}
+.buildable-hero{
+  margin-top:20px; background:linear-gradient(135deg, var(--steel-dark), var(--steel));
+  border-radius:14px; padding:22px 26px; display:flex; align-items:center; gap:16px;
+  box-shadow:var(--shadow); animation:riseIn .5s cubic-bezier(.2,.8,.2,1) both;
+}
+.buildable-hero .num{
+  font-family:'IBM Plex Mono'; font-size:44px; font-weight:700; color:#fff;
+  background:rgba(255,255,255,0.1); border-radius:10px; padding:6px 22px; flex-shrink:0;
+}
+.buildable-hero .lbl{font-size:14px; color:#dce6f0; max-width:420px; line-height:1.4;}
+
+.add-bom-row{
+  margin-top:20px; background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 20px; box-shadow:var(--shadow);
+}
+.add-bom-title{font-family:'Space Grotesk'; font-size:14.5px; margin:0 0 12px; color:var(--steel-dark);}
+.add-bom-form{display:flex; gap:10px; flex-wrap:wrap;}
+.add-bom-form select{
+  flex:2; min-width:200px; padding:10px 12px; border-radius:7px; border:1px solid var(--line); font-size:14px; background:#fff;
+}
+.add-bom-form input{
+  flex:1; min-width:120px; padding:10px 12px; border-radius:7px; border:1px solid var(--line); font-size:14px;
+}
+.hint-text{font-size:12.5px; color:var(--ink-faint); margin:10px 0 0;}
